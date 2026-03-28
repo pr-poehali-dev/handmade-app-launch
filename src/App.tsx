@@ -4,8 +4,12 @@ import { type Tab } from "@/data";
 import { CatalogScreen, FavoritesScreen } from "@/components/CatalogScreen";
 import { CartScreen, OrdersScreen } from "@/components/CartOrdersScreen";
 import { ChatScreen, ProfileScreen } from "@/components/ChatProfileScreen";
+import { MasterApp } from "@/components/MasterScreen";
+
+type AppMode = "buyer" | "master";
 
 export default function App() {
+  const [mode, setMode] = useState<AppMode>("buyer");
   const [tab, setTab] = useState<Tab>("catalog");
   const [favorites, setFavorites] = useState<number[]>([]);
   const [cart, setCart] = useState<number[]>([]);
@@ -19,13 +23,19 @@ export default function App() {
   const removeFromCart = (id: number) =>
     setCart(c => c.filter(x => x !== id));
 
+  // ── Master mode ──────────────────────────────────────────────────────────
+  if (mode === "master") {
+    return <MasterApp onSwitchMode={() => setMode("buyer")} />;
+  }
+
+  // ── Buyer mode ───────────────────────────────────────────────────────────
   const NAV_ITEMS: { key: Tab; icon: string; label: string; badge?: number }[] = [
-    { key: "catalog", icon: "LayoutGrid", label: "Каталог" },
-    { key: "favorites", icon: "Heart", label: "Избранное", badge: favorites.length || undefined },
-    { key: "cart", icon: "ShoppingBag", label: "Корзина", badge: cart.length || undefined },
-    { key: "orders", icon: "Package", label: "Заказы" },
-    { key: "chat", icon: "MessageCircle", label: "Чат", badge: 2 },
-    { key: "profile", icon: "User", label: "Профиль" },
+    { key: "catalog",   icon: "LayoutGrid",    label: "Каталог" },
+    { key: "favorites", icon: "Heart",         label: "Избранное", badge: favorites.length || undefined },
+    { key: "cart",      icon: "ShoppingBag",   label: "Корзина",   badge: cart.length || undefined },
+    { key: "orders",    icon: "Package",       label: "Заказы" },
+    { key: "chat",      icon: "MessageCircle", label: "Чат",       badge: 2 },
+    { key: "profile",   icon: "User",          label: "Профиль" },
   ];
 
   return (
@@ -35,16 +45,21 @@ export default function App() {
         {/* Status bar */}
         <div className="flex items-center justify-between px-5 pt-3 pb-1 flex-shrink-0">
           <span className="text-xs text-muted-foreground font-medium">9:41</span>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
+            {/* Mode switcher */}
+            <button
+              onClick={() => setMode("master")}
+              className="flex items-center gap-1.5 glass rounded-full px-3 py-1 text-[11px] font-semibold text-purple-400 hover:text-purple-300 transition-colors"
+            >
+              <Icon name="Palette" size={11} />
+              Я мастер
+            </button>
             <div className="flex gap-0.5 items-end">
               {[1,2,3,4].map(i => (
                 <div key={i} className="w-1 rounded-sm bg-foreground/60" style={{ height: `${4 + i * 2}px` }} />
               ))}
             </div>
             <Icon name="Wifi" size={12} className="text-foreground/60" />
-            <div className="w-5 h-2.5 rounded-sm border border-foreground/60 relative ml-0.5">
-              <div className="absolute inset-y-0.5 left-0.5 rounded-sm bg-foreground/60" style={{ width: "75%" }} />
-            </div>
           </div>
         </div>
 
