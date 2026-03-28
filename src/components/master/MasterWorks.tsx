@@ -1,9 +1,69 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Icon from "@/components/ui/icon";
 import { MASTER_WORKS } from "@/data/masterData";
 
+const UPLOAD_URL = "https://functions.poehali.dev/cf49085d-eae4-438f-a8ff-b8e70524acf2";
+
+type UploadState = "idle" | "uploading" | "done" | "error";
+
 export function MasterWorks() {
   const [showAddForm, setShowAddForm] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
+  const [uploadState, setUploadState] = useState<UploadState>("idle");
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Предпросмотр
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target?.result as string;
+      setPreviewUrl(dataUrl);
+      setUploadState("uploading");
+      setUploadError(null);
+      setUploadedUrl(null);
+
+      try {
+        const res = await fetch(UPLOAD_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            image: dataUrl,
+            contentType: file.type || "image/jpeg",
+          }),
+        });
+        const data = await res.json();
+        if (res.ok && data.url) {
+          setUploadedUrl(data.url);
+          setUploadState("done");
+        } else {
+          setUploadState("error");
+          setUploadError("Не удалось загрузить фото");
+        }
+      } catch {
+        setUploadState("error");
+        setUploadError("Ошибка сети, попробуйте снова");
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleReset = () => {
+    setPreviewUrl(null);
+    setUploadedUrl(null);
+    setUploadState("idle");
+    setUploadError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleClose = () => {
+    setShowAddForm(false);
+    handleReset();
+  };
 
   return (
     <div className="animate-fade-in px-4 pt-6">
@@ -26,13 +86,81 @@ export function MasterWorks() {
         <div className="glass-card rounded-2xl p-4 mb-5 animate-fade-in">
           <p className="font-semibold mb-3">Новая работа</p>
           <div className="space-y-3">
-            <div className="border-2 border-dashed border-border rounded-xl h-28 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/50 transition-colors">
-              <Icon name="ImagePlus" size={24} className="text-muted-foreground" />
-              <p className="text-xs text-muted-foreground">Загрузить фото</p>
-            </div>
-            <input placeholder="Название работы" className="w-full bg-muted rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground" />
+
+            {/* Photo upload area */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+
+            {!previewUrl ? (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full border-2 border-dashed border-border rounded-xl h-36 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
+              >
+                <Icon name="ImagePlus" size={28} className="text-muted-foreground" />
+                <p className="text-sm text-muted-foreground font-medium">Нажмите, чтобы выбрать фото</p>
+                <p className="text-[11px] text-muted-foreground">JPG, PNG, WEBP до 10 МБ</p>
+              </button>
+            ) : (
+              <div className="relative rounded-xl overflow-hidden h-48">
+                <img src={previewUrl} alt="preview" className="w-full h-full object-cover" />
+
+                {/* Overlay states */}
+                {uploadState === "uploading" && (
+                  <div className="absolute inset-0 bg-background/70 flex flex-col items-center justify-center gap-2">
+                    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    <p className="text-sm font-medium">Загружаю фото...</p>
+                  </div>
+                )}
+                {uploadState === "done" && (
+                  <div className="absolute top-2 right-2 bg-teal-500 text-white rounded-full px-3 py-1 flex items-center gap-1.5 text-xs font-semibold">
+                    <Icon name="Check" size={12} />
+                    Загружено
+                  </div>
+                )}
+                {uploadState === "error" && (
+                  <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center gap-2">
+                    <Icon name="AlertCircle" size={28} className="text-red-400" />
+                    <p className="text-sm text-red-400 font-medium">{uploadError}</p>
+                  </div>
+                )}
+
+                {/* Replace / remove buttons */}
+                <div className="absolute bottom-2 right-2 flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="glass rounded-lg px-2.5 py-1.5 text-[11px] font-medium flex items-center gap-1"
+                  >
+                    <Icon name="RefreshCw" size={11} />
+                    Заменить
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleReset}
+                    className="glass rounded-lg px-2 py-1.5 text-red-400"
+                  >
+                    <Icon name="X" size={13} />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <input
+              placeholder="Название работы"
+              className="w-full bg-muted rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
+            />
             <div className="grid grid-cols-2 gap-2">
-              <input placeholder="Цена, ₽" type="number" className="bg-muted rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground" />
+              <input
+                placeholder="Цена, ₽"
+                type="number"
+                className="bg-muted rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground"
+              />
               <select className="bg-muted rounded-xl px-4 py-3 text-sm outline-none text-muted-foreground">
                 <option>Категория</option>
                 <option>Керамика</option>
@@ -43,12 +171,34 @@ export function MasterWorks() {
                 <option>Вязание</option>
               </select>
             </div>
-            <textarea placeholder="Описание работы..." rows={3}
-              className="w-full bg-muted rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground resize-none" />
+            <textarea
+              placeholder="Описание работы..."
+              rows={3}
+              className="w-full bg-muted rounded-xl px-4 py-3 text-sm outline-none placeholder:text-muted-foreground resize-none"
+            />
             <div className="grid grid-cols-2 gap-2">
-              <button className="glass rounded-xl py-3 text-sm font-medium" onClick={() => setShowAddForm(false)}>Отмена</button>
-              <button className="bg-primary text-primary-foreground rounded-xl py-3 text-sm font-semibold">Опубликовать</button>
+              <button
+                type="button"
+                className="glass rounded-xl py-3 text-sm font-medium"
+                onClick={handleClose}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                disabled={uploadState === "uploading" || (previewUrl !== null && uploadState !== "done" && uploadState !== "error")}
+                className="bg-primary text-primary-foreground rounded-xl py-3 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+              >
+                {uploadState === "uploading" ? "Загружаю..." : "Опубликовать"}
+              </button>
             </div>
+
+            {/* Uploaded URL hint */}
+            {uploadedUrl && (
+              <p className="text-[10px] text-muted-foreground truncate px-1">
+                ✓ {uploadedUrl}
+              </p>
+            )}
           </div>
         </div>
       )}
